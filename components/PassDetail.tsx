@@ -94,6 +94,11 @@ export default function PassDetail({ pass, isLive = false }: PassDetailProps) {
             <span>{category.icon}</span>
             <span>{category.label}</span>
           </span>
+          {pass.isTrain && (
+            <span className="text-[10px] font-[family-name:var(--font-mono)] bg-sky-500/15 text-sky-300 border border-sky-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span>🚀</span> Starlink Train
+            </span>
+          )}
         </div>
         <span className={`text-sm font-[family-name:var(--font-mono)] ${brightness.color}`}>
           {brightness.icon} {pass.brightnessLabel}

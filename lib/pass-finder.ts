@@ -1,6 +1,13 @@
 import type { TleRecord, ObserverLocation, VisiblePass } from './types';
 import { TRACKED_OBJECTS } from './satellites';
 import { checkVisibility, computeLookAngles, isSkyDarkEnough } from './orbit';
+import {
+  checkVisibility,
+  computeLookAngles,
+  isSkyDarkEnough,
+  getTleInclinationDeg,
+  canReachObserverLatitude,
+} from './orbit';
 import { azimuthToCompass } from './compass';
 import { estimateBrightness } from './brightness';
 import { getAllCachedTles, getCachedTle } from './tle-cache';
@@ -67,6 +74,13 @@ function buildPass(
   }
 
   const category = getCategoryForNoradId(tle.noradId);
+
+  // Naked-eye threshold: Starlinks must reach at least 15° peak elevation
+  // to be visually distinguishable from light pollution & horizon obstacles
+  if (category === 'starlink' && peakElev < 15) {
+    return null;
+  }
+
   const brightness = estimateBrightness(peakElev, peakRange, category);
 
   return {
@@ -205,10 +219,18 @@ export function findCurrentPasses(
   }
 
   const tles = getAllCachedTles();
+  const allTles = getAllCachedTles();
+  // Filter only satellites whose inclination can physically reach observer's latitude
+  const tles = allTles.filter((tle) => {
+    const inc = getTleInclinationDeg(tle.line2);
+    return canReachObserverLatitude(inc, observer.latitude);
+  });
+
   const results: VisiblePass[] = [];
 
   for (const tle of tles) {
     const visible = checkVisibility(tle, observer, now);
+    const visible = checkVisibility(tle, observer, now, true);
     if (!visible) continue;
 
     // Found a visible satellite — scan around now to find pass bounds
@@ -216,6 +238,7 @@ export function findCurrentPasses(
     let startTime = now;
     for (let t = now.getTime() - 10 * 60 * 1000; t < now.getTime(); t += REFINE_STEP_MS) {
       if (checkVisibility(tle, observer, new Date(t))) {
+      if (checkVisibility(tle, observer, new Date(t), true)) {
         startTime = new Date(t);
         break;
       }
@@ -225,6 +248,7 @@ export function findCurrentPasses(
     let endTime = now;
     for (let t = now.getTime(); t < now.getTime() + 10 * 60 * 1000; t += REFINE_STEP_MS) {
       if (checkVisibility(tle, observer, new Date(t))) {
+      if (checkVisibility(tle, observer, new Date(t), true)) {
         endTime = new Date(t);
       } else {
         break;
@@ -245,6 +269,12 @@ export function findNextPass(
   observer: ObserverLocation,
 ): VisiblePass | null {
   const tles = getAllCachedTles();
+  const allTles = getAllCachedTles();
+  const tles = allTles.filter((tle) => {
+    const inc = getTleInclinationDeg(tle.line2);
+    return canReachObserverLatitude(inc, observer.latitude);
+  });
+
   const now = new Date();
   const endMs = now.getTime() + 24 * 60 * 60 * 1000;
   const end = new Date(endMs);
@@ -269,12 +299,20 @@ export function findNextPass(
 
 /**
  * Find all visible passes in the next N days.
+ * Includes Starlink train detection and latitude reachability filtering.
  */
 export function findForecastPasses(
   observer: ObserverLocation,
   days: number = 7,
 ): VisiblePass[] {
   const tles = getAllCachedTles();
+  const allTles = getAllCachedTles();
+  // Geolocation pre-filter: only scan satellites that can physically reach observer latitude
+  const tles = allTles.filter((tle) => {
+    const inc = getTleInclinationDeg(tle.line2);
+    return canReachObserverLatitude(inc, observer.latitude);
+  });
+
   const now = new Date();
   const endMs = now.getTime() + days * 24 * 60 * 60 * 1000;
   const end = new Date(endMs);
@@ -292,5 +330,25 @@ export function findForecastPasses(
 
   // Sort by start time
   allPasses.sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  // Detect Starlink trains: consecutive Starlink passes within 15 minutes of each other
+  for (let i = 0; i < allPasses.length; i++) {
+    const current = allPasses[i];
+    if (current.category !== 'starlink') continue;
+
+    const currentStart = new Date(current.startTime).getTime();
+    const hasNeighbor =
+      (i > 0 &&
+        allPasses[i - 1].category === 'starlink' &&
+        Math.abs(currentStart - new Date(allPasses[i - 1].startTime).getTime()) <= 15 * 60 * 1000) ||
+      (i < allPasses.length - 1 &&
+        allPasses[i + 1].category === 'starlink' &&
+        Math.abs(new Date(allPasses[i + 1].startTime).getTime() - currentStart) <= 15 * 60 * 1000);
+
+    if (hasNeighbor) {
+      current.isTrain = true;
+    }
+  }
+
   return allPasses;
 }

@@ -35,6 +35,7 @@ export interface VisiblePass {
   magnitude: number | null; // lower = brighter; null if unknown
   brightnessLabel: 'very bright' | 'bright' | 'moderate' | 'faint' | 'unknown';
   durationSeconds: number;
+  isTrain?: boolean; // Starlink train formation
 }
 
 /** Observer location in decimal degrees */

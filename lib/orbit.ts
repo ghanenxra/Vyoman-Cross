@@ -33,11 +33,39 @@ function getSatrec(tle: TleRecord): ReturnType<typeof satellite.twoline2satrec> 
     satrecCache.set(key, satrec);
     // Evict old entries if cache grows too large (shouldn't happen with ~23 sats)
     if (satrecCache.size > 100) {
+    // Evict old entries if cache grows too large
+    if (satrecCache.size > 500) {
       const first = satrecCache.keys().next().value;
       if (first !== undefined) satrecCache.delete(first);
     }
   }
   return satrec;
+}
+
+/**
+ * Extract satellite orbital inclination in degrees from TLE line 2 (columns 9–16).
+ */
+export function getTleInclinationDeg(line2: string): number {
+  if (!line2 || line2.length < 16) return 90;
+  const incStr = line2.substring(8, 16).trim();
+  const inc = parseFloat(incStr);
+  return isNaN(inc) ? 90 : inc;
+}
+
+/**
+ * Fast geometric check: can a satellite with a given inclination ever rise
+ * above minElevation for an observer at observerLatDeg?
+ * For near-Earth LEO (alt ~300-550 km), the horizon circle has an angular radius of ~18 deg.
+ */
+export function canReachObserverLatitude(
+  inclinationDeg: number,
+  observerLatDeg: number,
+  maxHorizonAngularRadiusDeg: number = 18,
+): boolean {
+  const maxLatReach =
+    (inclinationDeg > 90 ? 180 - inclinationDeg : inclinationDeg) +
+    maxHorizonAngularRadiusDeg;
+  return Math.abs(observerLatDeg) <= maxLatReach;
 }
 
 /**

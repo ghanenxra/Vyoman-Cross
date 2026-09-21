@@ -12,6 +12,7 @@ export const TRACKED_OBJECTS: TrackedObject[] = [
 
 /** Number of most-recent Starlink satellites to track */
 export const STARLINK_RECENT_COUNT = 60;
+export const STARLINK_RECENT_COUNT = 200;
 
 /** Minimum elevation in degrees for a pass to "count" */
 export const MIN_ELEVATION_DEG = 10;

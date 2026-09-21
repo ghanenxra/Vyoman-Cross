@@ -87,6 +87,7 @@ export default function Home() {
               </span>
               <span className="px-2.5 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center gap-1.5">
                 <span>🛰️</span> 60+ Starlink Satellites
+                <span>🛰️</span> 200+ Near-Earth Starlinks
               </span>
             </div>
           </div>
