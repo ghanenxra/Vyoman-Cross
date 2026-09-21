@@ -1,6 +1,5 @@
 import type { TleRecord, ObserverLocation, VisiblePass } from './types';
 import { TRACKED_OBJECTS } from './satellites';
-import { checkVisibility, computeLookAngles, isSkyDarkEnough } from './orbit';
 import {
   checkVisibility,
   computeLookAngles,
@@ -218,7 +217,6 @@ export function findCurrentPasses(
     return [];
   }
 
-  const tles = getAllCachedTles();
   const allTles = getAllCachedTles();
   // Filter only satellites whose inclination can physically reach observer's latitude
   const tles = allTles.filter((tle) => {
@@ -229,25 +227,20 @@ export function findCurrentPasses(
   const results: VisiblePass[] = [];
 
   for (const tle of tles) {
-    const visible = checkVisibility(tle, observer, now);
     const visible = checkVisibility(tle, observer, now, true);
     if (!visible) continue;
 
     // Found a visible satellite — scan around now to find pass bounds
-    // Look back up to 10 minutes
     let startTime = now;
     for (let t = now.getTime() - 10 * 60 * 1000; t < now.getTime(); t += REFINE_STEP_MS) {
-      if (checkVisibility(tle, observer, new Date(t))) {
       if (checkVisibility(tle, observer, new Date(t), true)) {
         startTime = new Date(t);
         break;
       }
     }
 
-    // Look forward up to 10 minutes
     let endTime = now;
     for (let t = now.getTime(); t < now.getTime() + 10 * 60 * 1000; t += REFINE_STEP_MS) {
-      if (checkVisibility(tle, observer, new Date(t))) {
       if (checkVisibility(tle, observer, new Date(t), true)) {
         endTime = new Date(t);
       } else {
@@ -268,7 +261,6 @@ export function findCurrentPasses(
 export function findNextPass(
   observer: ObserverLocation,
 ): VisiblePass | null {
-  const tles = getAllCachedTles();
   const allTles = getAllCachedTles();
   const tles = allTles.filter((tle) => {
     const inc = getTleInclinationDeg(tle.line2);
@@ -305,7 +297,6 @@ export function findForecastPasses(
   observer: ObserverLocation,
   days: number = 7,
 ): VisiblePass[] {
-  const tles = getAllCachedTles();
   const allTles = getAllCachedTles();
   // Geolocation pre-filter: only scan satellites that can physically reach observer latitude
   const tles = allTles.filter((tle) => {

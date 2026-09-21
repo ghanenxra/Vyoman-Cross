@@ -31,8 +31,6 @@ function getSatrec(tle: TleRecord): ReturnType<typeof satellite.twoline2satrec> 
   if (!satrec) {
     satrec = satellite.twoline2satrec(tle.line1, tle.line2);
     satrecCache.set(key, satrec);
-    // Evict old entries if cache grows too large (shouldn't happen with ~23 sats)
-    if (satrecCache.size > 100) {
     // Evict old entries if cache grows too large
     if (satrecCache.size > 500) {
       const first = satrecCache.keys().next().value;
