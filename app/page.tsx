@@ -253,6 +253,10 @@ export default function Home() {
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         onSelectSatellite={(sat) => setSelectedSat(sat)}
+        onSetLocation={(loc, name) => {
+          setObserverLocation(loc);
+          setLocationName(name);
+        }}
         satellites={allSatellites}
       />
 

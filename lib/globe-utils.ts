@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as satellite from 'satellite.js';
 import type { TleRecord } from './types';
+import worldBorders from '@/data/world-borders.json';
 
 export const EARTH_RADIUS_KM = 6371;
 export const GLOBE_RADIUS = 2.5;
@@ -246,19 +247,61 @@ export function getSunVector3(date: Date = new Date()): THREE.Vector3 {
 }
 
 /**
+ * Create 3D vector LineSegments for all real world country borders.
+ * Because these are 3D vector lines, they remain razor-sharp and NEVER pixelate or tear when zooming in!
+ */
+export function createWorldBorders3D(
+  globeRadius: number = GLOBE_RADIUS,
+): THREE.LineSegments {
+  const vertices: number[] = [];
+  const rings = worldBorders as [number, number][][];
+
+  for (const ring of rings) {
+    for (let i = 0; i < ring.length - 1; i++) {
+      const lng1 = ring[i][0];
+      const lat1 = ring[i][1];
+      const lng2 = ring[i + 1][0];
+      const lat2 = ring[i + 1][1];
+
+      // Avoid long lines wrapping across the antimeridian (-180 to 180)
+      if (Math.abs(lng2 - lng1) > 180) continue;
+
+      const v1 = latLngAltToVector3(lat1, lng1, 0, globeRadius + 0.003);
+      const v2 = latLngAltToVector3(lat2, lng2, 0, globeRadius + 0.003);
+
+      vertices.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(vertices, 3),
+  );
+
+  const material = new THREE.LineBasicMaterial({
+    color: 0x00f0ff,
+    transparent: true,
+    opacity: 0.65,
+  });
+
+  return new THREE.LineSegments(geometry, material);
+}
+
+/**
  * Procedural Earth texture generator for instant, offline-ready, high-tech globe rendering.
- * Renders continent polygons, graticules, equator, and glowing coastlines onto an HTML canvas.
+ * Renders real continent polygons from Natural Earth, graticules, equator, and glowing coastlines onto an HTML canvas.
  */
 export function createProceduralEarthCanvas(): HTMLCanvasElement {
-  const width = 2048;
-  const height = 1024;
+  const width = 4096;
+  const height = 2048;
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
   if (!ctx) return canvas;
 
-  // 1. Deep Space/Ocean Base Gradient
+  // 1. Deep Aerospace Navy Ocean Base Gradient
   const oceanGrad = ctx.createLinearGradient(0, 0, 0, height);
   oceanGrad.addColorStop(0, '#030712');
   oceanGrad.addColorStop(0.5, '#060f26');
@@ -266,8 +309,8 @@ export function createProceduralEarthCanvas(): HTMLCanvasElement {
   ctx.fillStyle = oceanGrad;
   ctx.fillRect(0, 0, width, height);
 
-  // 2. Lat/Long Graticule Grid
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+  // 2. Lat/Long Graticule Grid (Subtle cartographic coordinates)
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.07)';
   ctx.lineWidth = 1;
 
   // Longitude lines (every 15°)
@@ -288,9 +331,9 @@ export function createProceduralEarthCanvas(): HTMLCanvasElement {
     ctx.stroke();
   }
 
-  // Highlight Equator and Prime Meridian
+  // Highlight Equator, Tropics, and Prime Meridian
   ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.8;
   // Equator
   ctx.beginPath();
   ctx.moveTo(0, height / 2);
@@ -302,161 +345,95 @@ export function createProceduralEarthCanvas(): HTMLCanvasElement {
   ctx.lineTo(width / 2, height);
   ctx.stroke();
 
-  // 3. Draw Continents (Equirectangular Projections of Major Landmasses)
   // Helper to convert lat/lng to canvas x/y
   const toXY = (lng: number, lat: number): [number, number] => [
     ((lng + 180) / 360) * width,
     ((90 - lat) / 180) * height,
   ];
 
-  const drawPolygon = (coords: [number, number][], fill: string, stroke: string) => {
-    if (coords.length < 3) return;
+  // 3. Draw All Real World Country Polygons (Natural Earth 110m dataset)
+  const rings = worldBorders as [number, number][][];
+  ctx.fillStyle = '#0d162a'; // Deep slate-navy landmass
+  ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)'; // Glowing cyan coastline
+  ctx.lineWidth = 1.4;
+
+  for (const ring of rings) {
+    if (ring.length < 3) continue;
     ctx.beginPath();
-    const [startX, startY] = toXY(coords[0][0], coords[0][1]);
+    const [startX, startY] = toXY(ring[0][0], ring[0][1]);
     ctx.moveTo(startX, startY);
-    for (let i = 1; i < coords.length; i++) {
-      const [x, y] = toXY(coords[i][0], coords[i][1]);
+    for (let i = 1; i < ring.length; i++) {
+      const [x, y] = toXY(ring[i][0], ring[i][1]);
       ctx.lineTo(x, y);
     }
     ctx.closePath();
-    ctx.fillStyle = fill;
     ctx.fill();
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = 1.8;
     ctx.stroke();
-  };
+  }
 
-  const landFill = '#0f172a'; // Slate-900 land
-  const landStroke = 'rgba(0, 240, 255, 0.65)'; // Cyan neon coastline
-
-  // Continents approximate polygonal outlines:
-  // Africa
-  drawPolygon(
-    [
-      [-17, 30], [-5, 36], [10, 37], [25, 32], [32, 31], [35, 25],
-      [43, 12], [51, 12], [45, 5], [40, -4], [35, -12], [33, -25],
-      [28, -33], [19, -35], [15, -29], [12, -15], [9, 4], [3, 6],
-      [-5, 5], [-15, 11], [-17, 16], [-17, 30],
-    ],
-    landFill,
-    landStroke,
-  );
-
-  // Madagascar
-  drawPolygon(
-    [[44, -12], [50, -13], [50, -25], [44, -25]],
-    landFill,
-    landStroke,
-  );
-
-  // Eurasia (Europe + Asia + India + SE Asia)
-  drawPolygon(
-    [
-      [-10, 36], [0, 43], [10, 45], [15, 55], [25, 60], [30, 70],
-      [60, 76], [100, 77], [140, 72], [170, 68], [170, 60], [140, 50],
-      [130, 43], [122, 30], [110, 20], [105, 10], [98, 8], [90, 22],
-      [80, 13], [73, 19], [68, 25], [60, 25], [50, 30], [42, 40],
-      [35, 36], [28, 41], [22, 37], [13, 38], [5, 36], [-5, 36],
-      [-9, 43], [-5, 48], [5, 54], [10, 58], [25, 65], [15, 68],
-      [5, 62], [0, 50], [-10, 43], [-10, 36],
-    ],
-    landFill,
-    landStroke,
-  );
-
-  // Indian Subcontinent Detail
-  drawPolygon(
-    [
-      [68, 24], [72, 21], [74, 15], [77, 8], [80, 10], [80, 16],
-      [87, 21], [90, 24], [88, 27], [80, 30], [74, 32], [70, 30],
-      [68, 24],
-    ],
-    '#131c33',
-    'rgba(0, 240, 255, 0.85)',
-  );
-
-  // North America
-  drawPolygon(
-    [
-      [-168, 66], [-160, 55], [-140, 60], [-130, 50], [-124, 38],
-      [-117, 32], [-105, 23], [-97, 18], [-85, 21], [-80, 25],
-      [-81, 30], [-75, 35], [-70, 43], [-64, 46], [-53, 47],
-      [-56, 53], [-64, 60], [-80, 65], [-95, 70], [-120, 72],
-      [-140, 70], [-160, 71], [-168, 66],
-    ],
-    landFill,
-    landStroke,
-  );
-
-  // South America
-  drawPolygon(
-    [
-      [-77, 8], [-72, 11], [-60, 9], [-50, 0], [-35, -5],
-      [-37, -12], [-40, -22], [-50, -30], [-55, -40], [-65, -54],
-      [-73, -52], [-74, -45], [-70, -30], [-76, -15], [-80, -2],
-      [-77, 8],
-    ],
-    landFill,
-    landStroke,
-  );
-
-  // Australia
-  drawPolygon(
-    [
-      [114, -22], [122, -18], [130, -12], [137, -12], [142, -11],
-      [145, -15], [150, -22], [153, -28], [148, -37], [140, -37],
-      [135, -34], [128, -32], [118, -35], [115, -30], [114, -22],
-    ],
-    landFill,
-    landStroke,
-  );
-
-  // Japan & East Asia islands
-  drawPolygon(
-    [[130, 32], [135, 35], [142, 44], [140, 45], [132, 38]],
-    landFill,
-    landStroke,
-  );
-
-  // UK & Ireland
-  drawPolygon(
-    [[-10, 52], [-6, 58], [-1, 58], [1, 51], [-5, 50]],
-    landFill,
-    landStroke,
-  );
-
-  // 4. Glowing City Night Lights (Clusters in major metropolitan belts)
-  const cityDots: [number, number][] = [
+  // 4. Glowing City Night Lights (Real coordinates of major global metropolitan hubs)
+  const cityDots: [number, number, string][] = [
     // India
-    [75.8, 25.2], [77.2, 28.6], [72.8, 19.1], [80.3, 13.1], [88.4, 22.6], [77.6, 12.9],
+    [75.83, 25.18, 'Kota'],
+    [77.21, 28.61, 'Delhi'],
+    [72.88, 19.08, 'Mumbai'],
+    [77.59, 12.97, 'Bengaluru'],
+    [80.27, 13.08, 'Chennai'],
+    [88.36, 22.57, 'Kolkata'],
+    [78.49, 17.39, 'Hyderabad'],
+    [75.79, 26.91, 'Jaipur'],
+    [72.57, 23.02, 'Ahmedabad'],
     // East Asia
-    [116.4, 39.9], [121.5, 31.2], [113.3, 23.1], [139.7, 35.7], [126.9, 37.6],
+    [116.4, 39.9, 'Beijing'],
+    [121.5, 31.2, 'Shanghai'],
+    [113.3, 23.1, 'Guangzhou'],
+    [139.7, 35.7, 'Tokyo'],
+    [126.9, 37.6, 'Seoul'],
+    [103.8, 1.35, 'Singapore'],
+    [100.5, 13.75, 'Bangkok'],
     // Europe
-    [0.1, 51.5], [2.3, 48.9], [13.4, 52.5], [12.5, 41.9], [-3.7, 40.4], [37.6, 55.7],
+    [0.1, 51.5, 'London'],
+    [2.3, 48.9, 'Paris'],
+    [13.4, 52.5, 'Berlin'],
+    [12.5, 41.9, 'Rome'],
+    [-3.7, 40.4, 'Madrid'],
+    [37.6, 55.7, 'Moscow'],
+    [4.9, 52.4, 'Amsterdam'],
     // North America
-    [-74.0, 40.7], [-71.1, 42.4], [-87.6, 41.9], [-118.2, 34.0], [-122.4, 37.8], [-95.4, 29.8],
+    [-74.0, 40.7, 'New York'],
+    [-71.1, 42.4, 'Boston'],
+    [-87.6, 41.9, 'Chicago'],
+    [-118.2, 34.0, 'Los Angeles'],
+    [-122.4, 37.8, 'San Francisco'],
+    [-95.4, 29.8, 'Houston'],
+    [-79.4, 43.65, 'Toronto'],
     // Middle East
-    [55.3, 25.3], [46.7, 24.7], [31.2, 30.0],
+    [55.3, 25.3, 'Dubai'],
+    [46.7, 24.7, 'Riyadh'],
+    [31.2, 30.0, 'Cairo'],
     // South America
-    [-46.6, -23.5], [-43.2, -22.9], [-58.4, -34.6],
-    // Australia
-    [151.2, -33.9], [145.0, -37.8],
+    [-46.6, -23.5, 'São Paulo'],
+    [-43.2, -22.9, 'Rio'],
+    [-58.4, -34.6, 'Buenos Aires'],
+    // Australia & Pacific
+    [151.2, -33.9, 'Sydney'],
+    [145.0, -37.8, 'Melbourne'],
   ];
 
   ctx.fillStyle = '#fde047'; // Warm golden city lights
   ctx.shadowColor = '#facc15';
-  ctx.shadowBlur = 6;
+  ctx.shadowBlur = 8;
   for (const [lng, lat] of cityDots) {
     const [x, y] = toXY(lng, lat);
     ctx.beginPath();
-    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+    ctx.arc(x, y, 3.5, 0, Math.PI * 2);
     ctx.fill();
 
     // Secondary scatter lights around main hubs
-    for (let s = 0; s < 4; s++) {
-      const offsetX = (Math.random() - 0.5) * 14;
-      const offsetY = (Math.random() - 0.5) * 8;
-      ctx.fillRect(x + offsetX, y + offsetY, 1.2, 1.2);
+    for (let s = 0; s < 5; s++) {
+      const offsetX = (Math.random() - 0.5) * 20;
+      const offsetY = (Math.random() - 0.5) * 12;
+      ctx.fillRect(x + offsetX, y + offsetY, 1.6, 1.6);
     }
   }
   ctx.shadowBlur = 0;

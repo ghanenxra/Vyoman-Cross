@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import type { TleRecord } from '@/lib/types';
-import { Search, X, Satellite } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import type { TleRecord, ObserverLocation } from '@/lib/types';
+import { resolveLocationQuery } from '@/lib/coord-parser';
+import { Search, X, Satellite, MapPin } from 'lucide-react';
 
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectSatellite: (sat: TleRecord) => void;
+  onSetLocation?: (loc: ObserverLocation, name: string) => void;
   satellites: TleRecord[];
 }
 
@@ -15,6 +17,7 @@ export default function SearchModal({
   isOpen,
   onClose,
   onSelectSatellite,
+  onSetLocation,
   satellites,
 }: SearchModalProps) {
   const [search, setSearch] = useState('');
@@ -37,9 +40,6 @@ export default function SearchModal({
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         if (isOpen) onClose();
-        else {
-          // Parent triggers open
-        }
       }
       if (e.key === 'Escape' && isOpen) {
         onClose();
@@ -48,6 +48,11 @@ export default function SearchModal({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+
+  // Check if search query is a coordinate or city
+  const locationMatch = useMemo(() => {
+    return resolveLocationQuery(search);
+  }, [search]);
 
   if (!isOpen) return null;
 
@@ -64,7 +69,7 @@ export default function SearchModal({
         sat.noradId.toString().includes(query)
       );
     })
-    .slice(0, 50); // Limit to top 50 for speed
+    .slice(0, 50);
 
   const handleSelect = (sat: TleRecord) => {
     onSelectSatellite(sat);
@@ -104,7 +109,7 @@ export default function SearchModal({
               setSelectedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Search satellite by name or NORAD catalog ID (e.g. ISS, Starlink, 25544)..."
+            placeholder="Search satellites, or enter coordinates (e.g. 28.6139, 77.2090 or Kota)..."
             className="w-full bg-transparent text-white font-mono text-sm placeholder-gray-500 focus:outline-none"
           />
           <button
@@ -114,6 +119,38 @@ export default function SearchModal({
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Quick Coordinate Match Banner */}
+        {locationMatch && (
+          <div
+            onClick={() => {
+              onSetLocation?.(locationMatch.location, locationMatch.name);
+              onClose();
+            }}
+            className="m-2 p-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 cursor-pointer flex items-center justify-between transition-colors group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white font-mono flex items-center gap-2">
+                  <span>Set Observer: {locationMatch.name}</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-semibold uppercase">
+                    COORDINATE MATCH
+                  </span>
+                </div>
+                <div className="text-[10px] font-mono text-gray-300">
+                  {locationMatch.location.latitude.toFixed(4)}°,{' '}
+                  {locationMatch.location.longitude.toFixed(4)}° • Click to set as active location
+                </div>
+              </div>
+            </div>
+            <span className="text-xs font-mono font-bold text-emerald-400 group-hover:underline pr-2">
+              Apply Location →
+            </span>
+          </div>
+        )}
 
         {/* Category Filter Tabs */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5 bg-[#0f172a]/50 text-xs font-mono overflow-x-auto">
@@ -145,7 +182,7 @@ export default function SearchModal({
 
         {/* Satellites List */}
         <div className="overflow-y-auto p-2 divide-y divide-white/5">
-          {filtered.length === 0 ? (
+          {filtered.length === 0 && !locationMatch ? (
             <div className="p-8 text-center text-gray-400 font-mono text-sm">
               No satellites found matching &ldquo;{search}&rdquo;.
             </div>
@@ -190,7 +227,8 @@ export default function SearchModal({
                         )}
                       </div>
                       <div className="text-[11px] font-mono text-gray-400">
-                        NORAD ID: {sat.noradId} • Updated: {new Date(sat.fetchedAt).toLocaleDateString()}
+                        NORAD ID: {sat.noradId} • Updated:{' '}
+                        {new Date(sat.fetchedAt).toLocaleDateString()}
                       </div>
                     </div>
                   </div>

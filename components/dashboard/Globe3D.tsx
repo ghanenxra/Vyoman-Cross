@@ -12,6 +12,7 @@ import {
   getLiveSatelliteState,
   getSunVector3,
   createProceduralEarthCanvas,
+  createWorldBorders3D,
 } from '@/lib/globe-utils';
 import {
   RotateCcw,
@@ -46,11 +47,13 @@ export default function Globe3D({
   const userPinRef = useRef<THREE.Group | null>(null);
   const losLineRef = useRef<THREE.Line | null>(null);
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const bordersLineRef = useRef<THREE.LineSegments | null>(null);
 
   // Layer toggle states
   const [showOrbit, setShowOrbit] = useState(true);
   const [showGroundTrack, setShowGroundTrack] = useState(true);
   const [showAtmosphere, setShowAtmosphere] = useState(true);
+  const [showBorders, setShowBorders] = useState(true);
   const [isFollowingSat, setIsFollowingSat] = useState(false);
   const [liveInfo, setLiveInfo] = useState<{
     alt: number;
@@ -90,7 +93,7 @@ export default function Globe3D({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.minDistance = 3.2;
+    controls.minDistance = 2.75;
     controls.maxDistance = 15;
     controls.rotateSpeed = 0.7;
     controlsRef.current = controls;
@@ -116,7 +119,7 @@ export default function Globe3D({
     earthTexture.colorSpace = THREE.SRGBColorSpace;
     earthTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    const earthGeo = new THREE.SphereGeometry(GLOBE_RADIUS, 64, 64);
+    const earthGeo = new THREE.SphereGeometry(GLOBE_RADIUS, 96, 96);
     const earthMat = new THREE.MeshStandardMaterial({
       map: earthTexture,
       roughness: 0.85,
@@ -124,6 +127,12 @@ export default function Globe3D({
     });
     const earthMesh = new THREE.Mesh(earthGeo, earthMat);
     scene.add(earthMesh);
+
+    // 1b. Real 3D Vector Country Borders (Natural Earth - razor sharp at any zoom level)
+    const worldBordersLine = createWorldBorders3D(GLOBE_RADIUS);
+    worldBordersLine.name = 'worldBorders';
+    scene.add(worldBordersLine);
+    bordersLineRef.current = worldBordersLine;
 
     // 2. Atmosphere Outer Glow
     const atmosGeo = new THREE.SphereGeometry(GLOBE_RADIUS * 1.025, 48, 48);
@@ -430,6 +439,13 @@ export default function Globe3D({
     }
   }, [showAtmosphere]);
 
+  // World borders visibility toggle
+  useEffect(() => {
+    if (bordersLineRef.current) {
+      bordersLineRef.current.visible = showBorders;
+    }
+  }, [showBorders]);
+
   // Camera Control Actions
   const handleZoomIn = useCallback(() => {
     if (!controlsRef.current || !cameraRef.current) return;
@@ -580,10 +596,20 @@ export default function Globe3D({
             Track
           </button>
           <button
+            onClick={() => setShowBorders(!showBorders)}
+            className={`px-2 py-0.5 rounded-md font-mono transition-colors ${
+              showBorders
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold'
+                : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            Borders
+          </button>
+          <button
             onClick={() => setShowAtmosphere(!showAtmosphere)}
             className={`px-2 py-0.5 rounded-md font-mono transition-colors ${
               showAtmosphere
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold'
                 : 'text-gray-400 hover:text-gray-200'
             }`}
           >

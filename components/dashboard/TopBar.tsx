@@ -109,16 +109,28 @@ export default function TopBar({
 
       {/* Right: Observer Pin + Clocks + Moon */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Observer Location */}
+        {/* Observer Location & Coords Search Button */}
         <button
           onClick={onChangeLocation}
-          title="Change Observer Location"
-          className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+          title="Search Coordinates, City, or Change Location"
+          className="px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-gray-200 text-xs font-mono flex items-center gap-2 transition-colors cursor-pointer group shadow-sm"
         >
-          <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="hidden md:inline font-medium">{locationName}</span>
-          <span className="text-[10px] text-gray-400 font-mono">
-            {observerLocation.latitude.toFixed(1)}°N
+          <MapPin className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+          <div className="text-left hidden sm:block">
+            <div className="flex items-center gap-1.5 leading-tight">
+              <span className="font-bold text-white text-[11px] truncate max-w-[130px]">
+                {locationName}
+              </span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/10 text-emerald-300 font-mono">
+                Coords
+              </span>
+            </div>
+            <div className="text-[9px] text-gray-400 font-mono leading-tight">
+              {Math.abs(observerLocation.latitude).toFixed(2)}°{observerLocation.latitude >= 0 ? 'N' : 'S'}, {Math.abs(observerLocation.longitude).toFixed(2)}°{observerLocation.longitude >= 0 ? 'E' : 'W'}
+            </div>
+          </div>
+          <span className="sm:hidden font-mono text-[11px] text-emerald-300">
+            {locationName.split(',')[0]}
           </span>
         </button>
 
