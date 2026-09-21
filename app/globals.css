@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Vyoman Cross — Global Styles
+   ============================================================ */
+
+@theme {
+  --color-vc-bg: #0a0e14;
+  --color-vc-card: #111820;
+  --color-vc-hover: #1a2230;
+  --color-vc-text: #e2e8f0;
+  --color-vc-muted: #94a3b8;
+  --color-vc-dim: #64748b;
+  --color-vc-accent: #38bdf8;
+  --color-vc-accent-dim: #0c4a6e;
+  --color-vc-success: #34d399;
+  --color-vc-warning: #fbbf24;
+  --color-vc-error: #f87171;
+  --color-vc-border: #1e293b;
+
+  --font-heading: "Exo 2", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+body {
+  background-color: var(--color-vc-bg);
+  color: var(--color-vc-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-vc-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-vc-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-vc-dim);
+}
+
+/* Number input - hide spinners */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}

@@ -1,0 +1,4 @@
+{
+  "crons": [{ "path": "/api/tle/refresh", "schedule": "0 */4 * * *" }]
+}
+
