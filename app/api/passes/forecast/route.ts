@@ -15,6 +15,9 @@ function makeCacheKey(lat: number, lng: number, days: number): string {
   return `${rlat},${rlng},${days},${day}`;
 }
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const latStr = searchParams.get('lat');

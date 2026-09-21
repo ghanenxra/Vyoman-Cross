@@ -6,6 +6,8 @@ import { refreshAllTles } from '@/lib/tle-cache';
  * Triggered by Vercel Cron every 4 hours.
  * Refreshes all cached TLEs from CelesTrak.
  */
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   // Optional: verify cron secret for security
   const authHeader = request.headers.get('authorization');

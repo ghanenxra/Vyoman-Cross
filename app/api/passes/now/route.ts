@@ -3,6 +3,8 @@ import { ensureCachePopulated } from '@/lib/tle-cache';
 import { findCurrentPasses, findNextPass } from '@/lib/pass-finder';
 import type { NowResponse, ObserverLocation } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const latStr = searchParams.get('lat');
